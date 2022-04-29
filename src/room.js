@@ -284,7 +284,7 @@ export default (onPeer, onSelfLeave) => {
       console.error(e)
     })
 
-    onPeerJoin(id)
+    onPeerJoin(peer, id)
     peer.__drainEarlyData(onData)
   })
 

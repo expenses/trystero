@@ -13,7 +13,7 @@ import {
   selfId,
   values
 } from './utils'
-import {genKey, encrypt, decrypt} from './crypto'
+import {genKey, encrypt, sign, verify, decrypt} from './crypto'
 
 const occupiedRooms = {}
 const sockets = {}
@@ -110,9 +110,7 @@ export const joinRoom = initGuard(occupiedRooms, (config, ns) => {
       peer.once(events.signal, async answer =>
         socket.send(
           JSON.stringify({
-            answer: key
-              ? {...answer, sdp: await encrypt(key, answer.sdp)}
-              : answer,
+            answer: {...answer, sdp: await sign(config.signing_key, answer.sdp)},
             action: trackerAction,
             info_hash: infoHash,
             peer_id: selfId,
@@ -123,9 +121,19 @@ export const joinRoom = initGuard(occupiedRooms, (config, ns) => {
       )
       peer.on(events.connect, () => onConnect(peer, val.peer_id))
       peer.on(events.close, () => onDisconnect(val.peer_id))
-      peer.signal(
-        key ? {...val.offer, sdp: await decrypt(key, val.offer.sdp)} : val.offer
-      )
+
+      const verification_result = await verify(val.offer.sdp);
+
+      if (verification_result.verified) {
+        peer.signal(
+          {...val.offer, sdp: verification_result.sdp}
+        );
+
+        console.log(`Verified ${val.peer_id}`);
+        peer.key = verification_result.key;
+      } else {
+        console.warn(`Peer ${val.peer_id} sent a SDP that failed verification.`);
+      }
 
       return
     }
@@ -149,11 +157,19 @@ export const joinRoom = initGuard(occupiedRooms, (config, ns) => {
           onConnect(peer, val.peer_id, val.offer_id)
         )
         peer.on(events.close, () => onDisconnect(val.peer_id))
-        peer.signal(
-          key
-            ? {...val.answer, sdp: await decrypt(key, val.answer.sdp)}
-            : val.answer
-        )
+
+        const verification_result = await verify(val.answer.sdp);
+
+        if (verification_result.verified) {
+          peer.signal(
+            {...val.answer, sdp: verification_result.sdp}
+          );
+
+          console.log(`Verified ${val.peer_id}`);
+          peer.key = verification_result.key;
+        } else {
+          console.warn(`Peer ${val.peer_id} sent a SDP that failed verification.`);
+        }
       }
     }
   }
@@ -171,9 +187,7 @@ export const joinRoom = initGuard(occupiedRooms, (config, ns) => {
 
             return {
               offer_id: id,
-              offer: key
-                ? {...offer, sdp: await encrypt(key, offer.sdp)}
-                : offer
+              offer: {...offer, sdp: await sign(config.signing_key, offer.sdp)}
             }
           })
         )

@@ -2,6 +2,11 @@ import {encodeBytes, decodeBytes} from './utils'
 
 const algo = 'AES-CBC'
 
+const ecdsa_params = {
+  name: 'ECDSA',
+  hash: {name: "SHA-384"},
+}
+
 const pack = buff =>
   window.btoa(String.fromCharCode.apply(null, new Uint8Array(buff)))
 
@@ -49,4 +54,34 @@ export const decrypt = async (keyP, raw) => {
       unpack(c)
     )
   )
+}
+
+export const sign = async (key_pair, sdp) => {
+  const encoder = new TextEncoder();
+  const encoded_sdp = encoder.encode(sdp);
+  const signature = await crypto.subtle.sign(ecdsa_params, key_pair.privateKey, encoded_sdp);
+  const exported_key = await crypto.subtle.exportKey('jwk', key_pair.publicKey);
+
+  return JSON.stringify({
+    sdp: sdp,
+    signature: pack(signature),
+    key: exported_key,
+  });
+}
+
+export const verify = async (string) => {
+  const data = JSON.parse(string);
+  const imported_key = await crypto.subtle.importKey('jwk', data.key, ecdsa_params, true, ['verify']);
+
+  const encoder = new TextEncoder();
+  const encoded_sdp = encoder.encode(data.sdp);
+
+  const signature = unpack(data.signature);
+  const verified = await window.crypto.subtle.verify(ecdsa_params, imported_key, signature, encoded_sdp);
+
+  return {
+    sdp: data.sdp,
+    verified: verified,
+    key: imported_key,
+  };
 }
