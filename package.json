@@ -33,7 +33,8 @@
     "terser": "^5.7.0"
   },
   "scripts": {
-    "sizes": "./bundle-sizes.sh"
+    "sizes": "./bundle-sizes.sh",
+    "build": "rollup src/index.js --format iife -p node-resolve --name trystero --file bundle.js"
   },
   "keywords": [
     "webrtc",
