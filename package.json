@@ -34,7 +34,7 @@
   },
   "scripts": {
     "sizes": "./bundle-sizes.sh",
-    "build": "rollup src/index.js --format iife -p node-resolve --name trystero --file bundle.js"
+    "build": "rollup src/index.js --format iife -p node-resolve --name trystero --file trystero_bundled.js"
   },
   "keywords": [
     "webrtc",
